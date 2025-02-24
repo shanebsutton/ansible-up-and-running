@@ -1,0 +1,77 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  # Install ansible on a controller, and spin up a node to execute against.
+
+  config.vm.box = "bento/ubuntu-20.04"
+  # 'mount_options' used due to 'ansible.cfg' being in world-writable directory:
+  # https://docs.ansible.com/ansible/devel/reference_appendices/config.html#cfg-in-world-writable-dir
+  config.vm.synced_folder ".", "/vagrant", mount_options: ["dmode=775"]
+  $msg = <<-'MSG'
+  --------------------------------------------------------
+  `vagrant ssh controller` to connect to the controller.
+  Once connected, use `cd /vagrant` to change to the
+  Vagrant project folder.
+  From here ansible will have access to playbooks within
+  the project.
+  --------------------------------------------------------
+  MSG
+  config.vm.post_up_message = $msg
+  
+  config.vm.define "controller", primary: true do |machine|
+    machine.vm.network "private_network", ip: "192.168.33.10"
+    machine.vm.hostname = "controller"
+    machine.vm.boot_timeout = 420
+
+    machine.vm.provider "virtualbox" do |vb|
+      vb.name ="controller"
+      vb.memory = "2048"
+      vb.cpus = "2"
+    end
+
+    machine.vm.provision "shell" do |provision|
+      provision.path = "provision_ansible.sh"
+    end
+
+    # Generate a key pair if one does not exist, and copy public key to shared directory on host machine.
+    # Nodes will pull this key for authentication.
+    # From: https://github.com/jminck/vagrant-ansible-lab/blob/master/Vagrantfile
+    machine.vm.provision :shell, :inline => <<'EOF'
+if [ ! -f "/home/vagrant/.ssh/id_rsa" ]; then
+  ssh-keygen -t rsa -N "" -f /home/vagrant/.ssh/id_rsa
+fi
+cp /home/vagrant/.ssh/id_rsa.pub /vagrant/.vagrant/control.pub
+
+chown -R vagrant:vagrant /home/vagrant/.ssh
+EOF
+
+    # Having trouble with SSH key permissions...
+    # machine.vm.provision "ansible_local" do |ansible|
+    #   ansible.playbook = "example.yml"
+    #   ansible.verbose = true
+    #   ansible.install = true
+    #   # ansible.install_mode = "pip"
+    #   # ansible.version = "2.9.0"
+    #   ansible.limit = "all"
+    #   ansible.inventory_path = "inventory"
+    # end
+  end
+  
+  config.vm.define "srv1" do |machine|
+    machine.vm.network "private_network", ip: "192.168.33.30"
+    machine.vm.hostname = "srv1"
+    machine.vm.boot_timeout = 420
+
+    machine.vm.provider "virtualbox" do |vb|
+      vb.name = "srv1"
+      vb.memory = "1024"
+      vb.cpus = "1"
+    end
+
+    # Copy the key from the host machine
+    machine.vm.provision :shell, inline: 'cat /vagrant/.vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+  end
+
+end
