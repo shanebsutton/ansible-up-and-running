@@ -1,0 +1,9 @@
+---
+- name: Show a fact returned by a module
+  hosts: vagrant1
+  gather_facts: false
+  tasks:
+    - name: Get services facts
+      service_facts:
+
+    - debug: var=ansible_facts['services']['sshd.service']

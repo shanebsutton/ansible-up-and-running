@@ -1,0 +1,9 @@
+---
+- name: 'Ansible magic variables'
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Print all vars for host
+      debug: var=hostvars[inventory_hostname]
+
+...

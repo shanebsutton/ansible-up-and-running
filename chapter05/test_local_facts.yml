@@ -1,0 +1,12 @@
+---
+# A file has been configured on vagrant1 at /etc/ansible/facts.d/example.fact
+- name: 'Ansible local facts'
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Print ansible_local
+      debug: var=ansible_local
+
+    - name: Print book title
+      debug: msg="The book title is {{ ansible_local.example.book.title }}"
+...
