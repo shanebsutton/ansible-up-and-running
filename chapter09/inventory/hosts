@@ -1,0 +1,7 @@
+[vagrant]
+web ansible_host=192.168.56.10 ansible_port=22
+db  ansible_host=192.168.56.11 ansible_port=22
+
+[vagrant:vars]
+ansible_user=vagrant
+ansible_python_interpreter=/usr/bin/python3

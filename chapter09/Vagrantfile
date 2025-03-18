@@ -1,0 +1,102 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/focal64"
+  # Use the default insecure key for these machines
+  config.ssh.insert_key = false
+  # Forward ssh-agent for cloning from Github.com
+  config.ssh.forward_agent = true
+
+  $msg = <<-'MSG'
+  --------------------------------------------------------
+  `vagrant ssh controller` to connect to the controller.
+  Once connected, use `cd /vagrant` to change to the
+  Vagrant project folder.
+  From here ansible will have access to playbooks within
+  the project.
+  --------------------------------------------------------
+  MSG
+  config.vm.post_up_message = $msg
+
+  config.vm.define "controller", primary: true do |controller|
+    controller.vm.network "private_network", ip: "192.168.56.20"
+    controller.vm.hostname = "controller"
+    controller.vm.boot_timeout = 420
+    # 'mount_options' used due to 'ansible.cfg' being in world-writable directory:
+    # https://docs.ansible.com/ansible/devel/reference_appendices/config.html#cfg-in-world-writable-dir
+    controller.vm.synced_folder ".", "/vagrant", mount_options: ["dmode=775"]
+
+    controller.vm.provider "virtualbox" do |vb|
+      vb.name ="controller"
+      vb.memory = "2048"
+      vb.cpus = "2"
+    end
+
+    controller.vm.provision "shell" do |provision|
+      provision.path = "provision_ansible.sh"
+    end
+
+    # Generate a key pair if one does not exist, and copy public key to shared directory on host machine.
+    # Nodes will pull this key for authentication.
+    # From: https://github.com/jminck/vagrant-ansible-lab/blob/master/Vagrantfile
+    controller.vm.provision :shell, :inline => <<'EOF'
+if [ ! -f "/home/vagrant/.ssh/id_rsa" ]; then
+  ssh-keygen -t rsa -N "" -f /home/vagrant/.ssh/id_rsa
+fi
+cp /home/vagrant/.ssh/id_rsa.pub /vagrant/.vagrant/control.pub
+
+chown -R vagrant:vagrant /home/vagrant/.ssh
+EOF
+  end
+
+  config.vm.define "db" do |db|
+    # Use the default insecure key for these machines
+    db.ssh.insert_key = false
+    # Forward ssh-agent for cloning from Github.com
+    db.ssh.forward_agent = true
+    # disable updating guest additions
+    if Vagrant.has_plugin?("vagrant-vbguest")
+      db.vbguest.auto_update = false
+    end
+    # db.vm.synced_folder '.', '/vagrant', disabled: true
+    # Create a private network, which allows host-only access to the machine
+    # using a specific IP.
+    db.vm.network "private_network", ip: "192.168.56.11"
+    db.vm.hostname = "db"
+    db.vm.provider "virtualbox" do |vb|
+      vb.name = "db"
+      vb.memory = "1024"
+      vb.cpus = "1"
+    end
+
+    # Copy the key from the host machine
+    db.vm.provision :shell, inline: 'cat /vagrant/.vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+  end
+
+  config.vm.define "web" do |web|
+    # Use the default insecure key for these machines
+    web.ssh.insert_key = false
+    # Forward ssh-agent for cloning from Github.com
+    web.ssh.forward_agent = true
+    # disable updating guest additions
+    if Vagrant.has_plugin?("vagrant-vbguest")
+      web.vbguest.auto_update = false
+    end
+    # web.vm.synced_folder '.', '/vagrant', disabled: true
+    web.vm.hostname = "web"
+    web.vm.network "private_network", ip: "192.168.56.10"
+    # web.vm.network "forwarded_port", id: 'http', guest: 80, host: 8080, host_ip: "127.0.0.1"
+    # web.vm.network "forwarded_port", id: 'https', guest: 443, host: 8443, host_ip: "127.0.0.1"
+
+    web.vm.provider "virtualbox" do |vb|
+      vb.name = "web"
+      vb.memory = "1024"
+      vb.cpus = "1"
+    end
+
+    # Copy the key from the host machine
+    web.vm.provision :shell, inline: 'cat /vagrant/.vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+  end
+
+end
