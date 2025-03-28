@@ -14,5 +14,6 @@ Had trouble using WSL to launch vagrant. It worked, until it didn't, and now I c
 
 Going to use multiple VirtualBox VMs, with one as the controller.
 
-`vagrant init ubuntu/focal64` to stick with the book...
+This will typically mean that the forwarded ports in the book examples are not necessary, as the controller and any guests will be created on a private network within VirtualBox.
 
+`vagrant init ubuntu/focal64` to stick with the book...

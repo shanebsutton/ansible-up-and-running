@@ -1,0 +1,24 @@
+#!/usr/bin/env ansible-playbook
+---
+- name: Remove all Ghost containers and networks
+  hosts: localhost
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Remove containers
+      docker_container:
+        name: "{{ item }}"
+        state: absent
+        container_default_behavior: compatibility
+      loop:
+        - nginx_ghost
+        - ghost
+        - playbooks-nginx-1
+        - playbooks-ghost-1
+
+    - name: Remove network
+      docker_network:
+        name: ghostnet
+        state: absent
+...

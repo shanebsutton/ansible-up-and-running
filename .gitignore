@@ -1,3 +1,4 @@
 .vagrant
 secrets.yml
 .local_settings.py
+certs

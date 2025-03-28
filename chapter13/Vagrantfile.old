@@ -1,0 +1,57 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Use the default insecure key for these machines
+  #config.ssh.insert_key = false
+  # Forward ssh-agent for cloning from Github.com
+  #config.ssh.forward_agent = true
+
+  $msg = <<-'MSG'
+  --------------------------------------------------------
+  `vagrant ssh controller` to connect to the controller.
+  Once connected, use `cd /vagrant` to change to the
+  Vagrant project folder.
+  From here ansible will have access to playbooks within
+  the project.
+  --------------------------------------------------------
+  MSG
+  # config.vm.post_up_message = $msg
+
+  config.vm.define "controller", primary: true do |controller|
+    controller.vm.box = "ubuntu/focal64"
+    controller.vm.network "private_network", ip: "192.168.56.10"
+    controller.vm.hostname = "controller"
+    controller.vm.boot_timeout = 420
+    # 'mount_options' used due to 'ansible.cfg' being in world-writable directory:
+    # https://docs.ansible.com/ansible/devel/reference_appendices/config.html#cfg-in-world-writable-dir
+    controller.vm.synced_folder ".", "/vagrant", mount_options: ["dmode=775"]
+
+    controller.vm.provider "virtualbox" do |vb|
+      vb.name ="controller"
+      vb.memory = "2048"
+      vb.cpus = "2"
+    end
+
+    controller.vm.provision "shell" do |provision|
+      provision.path = "provision_ansible.sh"
+    end
+
+    #controller.vm.provision :docker
+
+    # Generate a key pair if one does not exist, and copy public key to shared directory on host machine.
+    # Nodes will pull this key for authentication.
+    # From: https://github.com/jminck/vagrant-ansible-lab/blob/master/Vagrantfile
+    controller.vm.provision :shell, :inline => <<'EOF'
+if [ ! -f "/home/vagrant/.ssh/id_rsa" ]; then
+  ssh-keygen -t rsa -N "" -f /home/vagrant/.ssh/id_rsa
+fi
+cp /home/vagrant/.ssh/id_rsa.pub /vagrant/.vagrant/control.pub
+
+chown -R vagrant:vagrant /home/vagrant/.ssh
+EOF
+
+    controller.vm.post_up_message = $msg
+  end
+
+end
