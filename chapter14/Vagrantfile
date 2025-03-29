@@ -1,0 +1,40 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  $msg = <<-'MSG'
+  --------------------------------------------------------
+  `vagrant ssh controller` to connect to controller.
+  Once connected:
+  `cd /vagrant` to change to Vagrant project folder.
+  `source chapter14.rc` to install dependencies into
+    a Python3 virtualenv.
+  
+  From here Ansible will have access to playbooks within
+  the project.
+  --------------------------------------------------------
+  MSG
+  config.vm.post_up_message = $msg
+
+  config.vm.define "controller", primary: true do |controller|
+    controller.vm.box = "ubuntu/focal64"
+    controller.vm.network "private_network", ip: "192.168.56.10"
+    controller.vm.hostname = "controller"
+    controller.vm.boot_timeout = 420
+    # 'mount_options' used due to 'ansible.cfg' being in world-writable directory:
+    # https://docs.ansible.com/ansible/devel/reference_appendices/config.html#cfg-in-world-writable-dir
+    controller.vm.synced_folder ".", "/vagrant", mount_options: ["dmode=775"], type: "rsync", rsync__args: ["--verbose", "--archive", "--delete", "-z"]
+
+    controller.vm.provider "virtualbox" do |vb|
+      vb.name ="controller"
+      vb.memory = "2048"
+      vb.cpus = "2"
+    end
+
+    controller.vm.provision "shell" do |provision|
+      provision.path = "bootstrap.sh"
+    end
+  end
+
+end
