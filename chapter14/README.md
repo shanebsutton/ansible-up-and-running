@@ -1,11 +1,17 @@
 # Chapter 14 Examples
 
+Examples from chapter were pretty involved, so I didn't go through them beyond setting up the venv and running a few commands.
+
+Book Repo: <https://github.com/ansiblebook/ansiblebook/tree/master/chapter14>
+Molecule Docs: <https://ansible.readthedocs.io/projects/molecule/>
+
+## Line endings causing linting problems
+
 If problems with line endings the following is helpful:
 
 `sed -i 's/.$//' file`
 
 From: <https://ubuntuforums.org/showthread.php?t=1436135>
-
 
 ## venv issues
 
