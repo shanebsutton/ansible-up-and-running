@@ -4,10 +4,10 @@
 # Require JSON module
 require 'json'
 # Read JSON file with config details
-#guests = JSON.parse(File.read(File.join(File.dirname(__FILE__), 'config.json')))
+guests = JSON.parse(File.read(File.join(File.dirname(__FILE__), 'config.json')))
 
 Vagrant.configure("2") do |config|
-  #config.vagrant.plugins = ["vagrant-hostmanager", "vagrant-vbguest"]
+  #config.vagrant.plugins = ["vagrant-vbguest"]
 
   config.vm.box_check_update = true
   config.vm.boot_timeout = 420
@@ -17,7 +17,7 @@ Vagrant.configure("2") do |config|
   end
 
   # enable ssh agent forwarding
-  config.ssh.forward_agent = true
+  #config.ssh.forward_agent = true
   # use the standard vagrant ssh key
   config.ssh.insert_key = false
   # disable guest additions
@@ -26,18 +26,21 @@ Vagrant.configure("2") do |config|
   $msg = <<-'MSG'
   --------------------------------------------------------
   `vagrant ssh controller` to connect to controller.
+  Project files are copied to home directory.
+
   Once connected:
-  `cd /vagrant` to change to Vagrant project folder.
-  `source chapter14.rc` to install dependencies into
-    a Python3 virtualenv.
-  
-  From here Ansible will have access to playbooks within
-  the project.
+  `source .venv/bin/activate` to activate the virtual
+    environment that is configured during provisioning.
+
+  `ansible-galaxy collection install -r roles/requirements.yml`
+  `ansible-galaxy install --force -p roles -r roles/requirements.yml`
   --------------------------------------------------------
   MSG
 
   config.vm.define "controller", primary: true do |controller|
-    controller.vm.box = "generic/rhel8"
+    #controller.vm.box = "centos/stream9"  # No guest additions
+    controller.vm.box = "geerlingguy/centos8" # Old; Python 3.6
+    #controller.vm.box = "generic/centos9s" # Takes a long time to update. Guest additions disappear after reboot and/or updating...
     controller.vm.network "private_network", ip: "192.168.56.10"
     controller.vm.hostname = "controller"
     controller.vm.boot_timeout = 600
@@ -58,24 +61,57 @@ Vagrant.configure("2") do |config|
       provision.privileged = false
     end
 
-#     $script = <<-SCRIPT
-#     pip3 install --upgrade pip
-#     pip3 install wheel
-#     pip3 install requests==2.31.0
-#     SCRIPT
-
-#     controller.vm.provision "shell", inline: $script, privileged: false
-
 #     # Generate a key pair if one does not exist, and copy public key to shared directory on host machine.
 #     # Nodes will pull this key for authentication.
 #     # From: https://github.com/jminck/vagrant-ansible-lab/blob/master/Vagrantfile
-#     controller.vm.provision :shell, :inline => <<'EOF'
+    $script = <<'EOF'
+if [ ! -f "/home/vagrant/.ssh/id_rsa" ]; then
+ssh-keygen -t rsa -N "" -f /home/vagrant/.ssh/id_rsa
+fi
+cp /home/vagrant/.ssh/id_rsa.pub /vagrant/control.pub
+chown -R vagrant:vagrant /home/vagrant/.ssh
+EOF
+
+    controller.vm.provision "shell" do |provision|
+      provision.privileged = false
+      provision.inline = $script
+    end
+
+#     controller.vm.provision :shell, inline => <<'EOF'
 # if [ ! -f "/home/vagrant/.ssh/id_rsa" ]; then
 # ssh-keygen -t rsa -N "" -f /home/vagrant/.ssh/id_rsa
 # fi
-# cp /home/vagrant/.ssh/id_rsa.pub /vagrant/.vagrant/control.pub
+# cp /home/vagrant/.ssh/id_rsa.pub /vagrant/control.pub
 
 # chown -R vagrant:vagrant /home/vagrant/.ssh
 # EOF
   end
+
+  # Iterate through entries in JSON file
+  guests.each do |guest|
+    config.vm.define guest['name'] do |srv|
+      srv.vm.box = guest['box']
+      srv.vm.hostname = guest['name']
+      srv.vm.network 'private_network', ip: guest['ip_addr']
+      #srv.vm.network :forwarded_port, host: guest['forwarded_port'], guest: guest['app_port']
+
+      # set no_share to false to enable file sharing
+      #srv.vm.synced_folder ".", "/vagrant", id: "vagrant-root", disabled: guest['no_share']
+      #srv.vm.synced_folder ".", "/vagrant"
+      srv.vm.provider :virtualbox do |virtualbox|
+        virtualbox.customize ["modifyvm", :id,
+           "--audio", "none",
+           "--cpus", guest['cpus'],
+           "--memory", guest['memory'],
+           "--vram", "64"
+        ]
+        virtualbox.gui = guest['gui']
+        virtualbox.name = guest['name']
+      end
+
+      # Copy the key from the host machine
+      srv.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+    end
+  end
+
 end

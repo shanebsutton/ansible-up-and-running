@@ -1,0 +1,15 @@
+[
+    {
+        "app_port": "8081",
+        "box": "centos/stream9",
+        "cpus": 4,
+        "distro": "centos",
+        "family": "redhat",
+        "forwarded_port": "8081",
+        "gui": false,
+        "ip_addr": "192.168.56.16",
+        "memory": "8192",
+        "name": "server04",
+        "no_share": true
+    }
+]
