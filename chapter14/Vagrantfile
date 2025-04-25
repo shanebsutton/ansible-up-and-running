@@ -6,13 +6,15 @@ Vagrant.configure("2") do |config|
   $msg = <<-'MSG'
   --------------------------------------------------------
   `vagrant ssh controller` to connect to controller.
+  Project files are copied to home directory from synced
+    folder.
+
   Once connected:
-  `cd /vagrant` to change to Vagrant project folder.
-  `source chapter14.rc` to install dependencies into
-    a Python3 virtualenv.
-  
-  From here Ansible will have access to playbooks within
-  the project.
+  `source .venv/bin/activate` to activate the virtual
+    environment that is configured during provisioning.
+
+  `source chapter14.rc` to create virtual environment and
+    install dependencies manually.
   --------------------------------------------------------
   MSG
   config.vm.post_up_message = $msg
@@ -24,16 +26,17 @@ Vagrant.configure("2") do |config|
     controller.vm.boot_timeout = 420
     # 'mount_options' used due to 'ansible.cfg' being in world-writable directory:
     # https://docs.ansible.com/ansible/devel/reference_appendices/config.html#cfg-in-world-writable-dir
-    controller.vm.synced_folder ".", "/vagrant", mount_options: ["dmode=775"], type: "rsync", rsync__args: ["--verbose", "--archive", "--delete", "-z"]
+    #controller.vm.synced_folder ".", "/vagrant", mount_options: ["dmode=775"], type: "rsync", rsync__args: ["--verbose", "--archive", "--delete", "-z"]
 
     controller.vm.provider "virtualbox" do |vb|
       vb.name ="controller"
-      vb.memory = "2048"
-      vb.cpus = "2"
+      vb.memory = "4096"
+      vb.cpus = "4"
     end
 
     controller.vm.provision "shell" do |provision|
       provision.path = "bootstrap.sh"
+      provision.privileged = false
     end
   end
 
